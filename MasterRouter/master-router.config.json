@@ -1,0 +1,9 @@
+﻿{
+  "primary": "DEFAULT",
+  "jaFallback": "JA VCV & CVVC",
+  "quickTag": "JA VCV & CVVC",
+  "aliases": {
+    "ja": "JA VCV & CVVC",
+    "default": "DEFAULT"
+  }
+}

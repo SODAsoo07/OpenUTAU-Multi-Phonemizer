@@ -1,0 +1,4 @@
+name=Master Router Tagger GUI(&M)
+execute=MasterRouterTagger.exe
+encoding=utf-8
+shell=use

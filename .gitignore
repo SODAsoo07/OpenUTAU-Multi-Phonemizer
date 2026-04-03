@@ -1,32 +1,18 @@
-# Prerequisites
-*.d
+# Build outputs
+**/bin/
+**/obj/
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# IDE / user-local files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
 
-# Precompiled Headers
-*.gch
-*.pch
+# Local temp / debug helpers (not source)
+_openutau_stable_ref/
+_inspect/
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+# Logs / temp files
+*.log
+*.tmp
