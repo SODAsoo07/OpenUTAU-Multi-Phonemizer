@@ -3,6 +3,11 @@ using System.Text.RegularExpressions;
 
 namespace MasterRouterTagger;
 
+public enum TaggingMode {
+    AddRouteTag,
+    RemoveRouteTag,
+}
+
 internal enum ApplyStatus {
     Applied,
     NoSelectedRange,
@@ -14,12 +19,12 @@ internal readonly record struct ApplyResult(ApplyStatus Status, int Changed);
 internal static class TaggingProcessor {
     private static readonly Regex NumberBlock = new(@"^\[#\d{4}\]$", RegexOptions.Compiled);
 
-    public static ApplyResult Apply(string tempFilePath, string tag, bool overwriteExistingTag) {
+    public static ApplyResult Apply(string tempFilePath, string tag, bool overwriteExistingTag, TaggingMode mode) {
         if (!File.Exists(tempFilePath)) {
             throw new FileNotFoundException($"Temp file not found: {tempFilePath}");
         }
         var normalizedTag = NormalizeTag(tag);
-        if (string.IsNullOrWhiteSpace(normalizedTag)) {
+        if (mode == TaggingMode.AddRouteTag && string.IsNullOrWhiteSpace(normalizedTag)) {
             throw new ArgumentException("Tag is empty.", nameof(tag));
         }
 
@@ -50,7 +55,9 @@ internal static class TaggingProcessor {
                 continue;
             }
             var lyric = line.Substring("Lyric=".Length);
-            var updated = ApplyTagToLyric(lyric, normalizedTag, overwriteExistingTag);
+            var updated = mode == TaggingMode.RemoveRouteTag
+                ? RemoveTagFromLyric(lyric)
+                : ApplyTagToLyric(lyric, normalizedTag, overwriteExistingTag);
             if (!string.Equals(lyric, updated, StringComparison.Ordinal)) {
                 lines[i] = $"Lyric={updated}";
                 changed++;
@@ -79,6 +86,19 @@ internal static class TaggingProcessor {
             return $":{tag}:{body}";
         }
         return $":{tag}:{lyric}";
+    }
+
+    private static string RemoveTagFromLyric(string lyric) {
+        if (string.IsNullOrWhiteSpace(lyric)) {
+            return lyric;
+        }
+        if (string.Equals(lyric, "R", StringComparison.OrdinalIgnoreCase)) {
+            return lyric;
+        }
+        if (lyric.StartsWith('+')) {
+            return lyric;
+        }
+        return TryParseRouteTag(lyric, out _, out var body) ? body : lyric;
     }
 
     private static bool TryParseRouteTag(string lyric, out string route, out string body) {

@@ -1,58 +1,82 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 
 namespace MasterRouterTagger;
 
 public sealed class TaggerForm : Form {
+    private readonly ComboBox modeComboBox = new();
     private readonly ComboBox tagComboBox = new();
     private readonly CheckBox overwriteCheckBox = new();
     private readonly Button okButton = new();
     private readonly Button cancelButton = new();
     private readonly Dictionary<string, string> presetByDisplay = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> categoryHeaders = new(StringComparer.Ordinal);
+    private readonly HashSet<int> categoryHeaderIndices = new();
+    private int lastValidPresetIndex = -1;
 
     public string SelectedTag { get; private set; } = string.Empty;
     public bool OverwriteExistingTag => overwriteCheckBox.Checked;
+    public TaggingMode SelectedMode { get; private set; } = TaggingMode.AddRouteTag;
 
     public TaggerForm() {
-        Text = "Master Router Tagger";
+        Text = "Unofficial Master Router Tagger";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(560, 180);
+        ClientSize = new Size(640, 240);
 
         var titleLabel = new Label {
-            Text = "선택한 노트의 가사 앞에 :태그:를 추가합니다.",
+            Text = "비공식(서드파티) 플러그인: 선택 노트에 :태그:를 추가/제거합니다.",
             AutoSize = true,
             Location = new Point(16, 16),
         };
         Controls.Add(titleLabel);
 
+        var modeLabel = new Label {
+            Text = "동작:",
+            AutoSize = true,
+            Location = new Point(16, 52),
+        };
+        Controls.Add(modeLabel);
+
+        modeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+        modeComboBox.Location = new Point(16, 72);
+        modeComboBox.Size = new Size(256, 28);
+        modeComboBox.Items.Add("태그 추가");
+        modeComboBox.Items.Add("태그 제거");
+        modeComboBox.SelectedIndex = 0;
+        modeComboBox.SelectedIndexChanged += (_, _) => RefreshModeState();
+        Controls.Add(modeComboBox);
+
         var tagLabel = new Label {
             Text = "태그 / 프리셋:",
             AutoSize = true,
-            Location = new Point(16, 52),
+            Location = new Point(16, 108),
         };
         Controls.Add(tagLabel);
 
         tagComboBox.DropDownStyle = ComboBoxStyle.DropDown;
-        tagComboBox.Location = new Point(16, 72);
-        tagComboBox.Size = new Size(528, 28);
+        tagComboBox.DrawMode = DrawMode.OwnerDrawFixed;
+        tagComboBox.Location = new Point(16, 128);
+        tagComboBox.Size = new Size(608, 28);
+        tagComboBox.DrawItem += OnTagComboDrawItem;
+        tagComboBox.SelectionChangeCommitted += OnTagComboSelectionCommitted;
         Controls.Add(tagComboBox);
 
         overwriteCheckBox.Text = "기존 라우팅 태그가 있어도 덮어쓰기";
         overwriteCheckBox.AutoSize = true;
-        overwriteCheckBox.Location = new Point(16, 108);
+        overwriteCheckBox.Location = new Point(16, 164);
         overwriteCheckBox.Checked = false;
         Controls.Add(overwriteCheckBox);
 
         okButton.Text = "적용";
-        okButton.Location = new Point(368, 136);
+        okButton.Location = new Point(448, 200);
         okButton.Size = new Size(84, 30);
         okButton.Click += (_, _) => OnSubmit();
         Controls.Add(okButton);
 
         cancelButton.Text = "취소";
-        cancelButton.Location = new Point(460, 136);
+        cancelButton.Location = new Point(540, 200);
         cancelButton.Size = new Size(84, 30);
         cancelButton.DialogResult = DialogResult.Cancel;
         Controls.Add(cancelButton);
@@ -61,16 +85,37 @@ public sealed class TaggerForm : Form {
         CancelButton = cancelButton;
 
         LoadPresets();
+        RefreshModeState();
+    }
+
+    private void RefreshModeState() {
+        SelectedMode = modeComboBox.SelectedIndex == 1
+            ? TaggingMode.RemoveRouteTag
+            : TaggingMode.AddRouteTag;
+        var addMode = SelectedMode == TaggingMode.AddRouteTag;
+        tagComboBox.Enabled = addMode;
+        overwriteCheckBox.Enabled = addMode;
     }
 
     private void OnSubmit() {
+        if (SelectedMode == TaggingMode.RemoveRouteTag) {
+            SelectedTag = string.Empty;
+            DialogResult = DialogResult.OK;
+            Close();
+            return;
+        }
+
         var input = tagComboBox.Text.Trim();
+        if (categoryHeaders.Contains(input)) {
+            MessageBox.Show("카테고리 항목이 아니라 실제 프리셋/태그를 선택해 주세요.", "Unofficial Master Router Tagger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
         if (presetByDisplay.TryGetValue(input, out var mapped)) {
             input = mapped;
         }
         input = NormalizeTagInput(input);
         if (string.IsNullOrWhiteSpace(input)) {
-            MessageBox.Show("태그를 입력하거나 프리셋에서 선택해 주세요.", "Master Router Tagger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("태그를 입력하거나 프리셋에서 선택해 주세요.", "Unofficial Master Router Tagger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         SelectedTag = input;
@@ -78,13 +123,74 @@ public sealed class TaggerForm : Form {
         Close();
     }
 
+    private void OnTagComboSelectionCommitted(object? sender, EventArgs e) {
+        if (tagComboBox.SelectedIndex < 0) {
+            return;
+        }
+        if (categoryHeaderIndices.Contains(tagComboBox.SelectedIndex)) {
+            System.Media.SystemSounds.Beep.Play();
+            if (lastValidPresetIndex >= 0 && lastValidPresetIndex < tagComboBox.Items.Count) {
+                tagComboBox.SelectedIndex = lastValidPresetIndex;
+            } else {
+                tagComboBox.SelectedIndex = -1;
+                tagComboBox.Text = string.Empty;
+            }
+            return;
+        }
+        lastValidPresetIndex = tagComboBox.SelectedIndex;
+    }
+
+    private void OnTagComboDrawItem(object? sender, DrawItemEventArgs e) {
+        e.DrawBackground();
+        if (e.Index < 0 || e.Index >= tagComboBox.Items.Count) {
+            return;
+        }
+        var text = tagComboBox.Items[e.Index]?.ToString() ?? string.Empty;
+        var isHeader = categoryHeaderIndices.Contains(e.Index);
+        var baseFont = e.Font ?? tagComboBox.Font;
+        if (baseFont == null) {
+            return;
+        }
+        var createdFont = false;
+        var font = baseFont;
+        if (isHeader) {
+            font = new Font(baseFont, FontStyle.Bold);
+            createdFont = true;
+        }
+        var color = isHeader ? Color.DimGray : e.ForeColor;
+        TextRenderer.DrawText(
+            e.Graphics,
+            text,
+            font,
+            e.Bounds,
+            color,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        if (createdFont) {
+            font.Dispose();
+        }
+        e.DrawFocusRectangle();
+    }
+
     private void LoadPresets() {
+        var grouped = BuiltinPresets()
+            .GroupBy(x => x.Category)
+            .OrderBy(g => CategoryOrder(g.Key))
+            .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         var displays = new List<string>();
-        foreach (var (name, tag) in BuiltinPresets()) {
-            var display = $"{name} ({tag})";
-            if (!presetByDisplay.ContainsKey(display)) {
-                presetByDisplay[display] = tag;
-                displays.Add(display);
+        foreach (var group in grouped) {
+            var header = $"=== {group.Key} ===";
+            categoryHeaders.Add(header);
+            categoryHeaderIndices.Add(displays.Count);
+            displays.Add(header);
+
+            foreach (var preset in group.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)) {
+                var display = $"{preset.Name} ({preset.Tag})";
+                if (!presetByDisplay.ContainsKey(display)) {
+                    presetByDisplay[display] = preset.Tag;
+                    displays.Add(display);
+                }
             }
         }
 
@@ -94,6 +200,11 @@ public sealed class TaggerForm : Form {
         } else if (!string.IsNullOrWhiteSpace(config.Primary)) {
             tagComboBox.Text = config.Primary!;
         }
+
+        var aliasHeader = "=== Aliases ===";
+        displays.Add(aliasHeader);
+        categoryHeaders.Add(aliasHeader);
+        categoryHeaderIndices.Add(displays.Count - 1);
         foreach (var alias in config.Aliases.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)) {
             var display = $"{alias.Key} (alias -> {alias.Value})";
             if (!presetByDisplay.ContainsKey(display)) {
@@ -101,7 +212,56 @@ public sealed class TaggerForm : Form {
                 displays.Add(display);
             }
         }
+
         tagComboBox.Items.AddRange(displays.Cast<object>().ToArray());
+        if (tagComboBox.SelectedIndex >= 0 && !categoryHeaderIndices.Contains(tagComboBox.SelectedIndex)) {
+            lastValidPresetIndex = tagComboBox.SelectedIndex;
+        }
+    }
+
+    private static int CategoryOrder(string category) {
+        return category switch {
+            "General" => 0,
+            "Japanese (JA)" => 1,
+            "Korean (KO)" => 2,
+            "English (EN)" => 3,
+            "Chinese (ZH)" => 4,
+            "Cantonese (ZH-YUE)" => 5,
+            "Vietnamese (VIE)" => 6,
+            "Spanish (ES)" => 7,
+            "French (FR)" => 8,
+            "German (DE)" => 9,
+            "Italian (IT)" => 10,
+            "Portuguese (PT)" => 11,
+            "Russian (RU)" => 12,
+            "Polish (PL)" => 13,
+            "Thai (TH)" => 14,
+            "Turkish (TR)" => 15,
+            "Filipino (FIL)" => 16,
+            _ => 100,
+        };
+    }
+
+    private static string Categorize(string tag) {
+        var t = (tag ?? string.Empty).ToUpperInvariant();
+        if (t.Contains("DEFAULT")) return "General";
+        if (t.Contains("ZH-YUE")) return "Cantonese (ZH-YUE)";
+        if (t.Contains("JA")) return "Japanese (JA)";
+        if (t.Contains("KO")) return "Korean (KO)";
+        if (t.Contains("EN")) return "English (EN)";
+        if (t.Contains("ZH")) return "Chinese (ZH)";
+        if (t.Contains("VIE")) return "Vietnamese (VIE)";
+        if (t.Contains("ES")) return "Spanish (ES)";
+        if (t.Contains("FR")) return "French (FR)";
+        if (t.Contains("DE")) return "German (DE)";
+        if (t.Contains("IT")) return "Italian (IT)";
+        if (t.Contains("PT")) return "Portuguese (PT)";
+        if (t.Contains("RU")) return "Russian (RU)";
+        if (t.Contains("PL")) return "Polish (PL)";
+        if (t.Contains("TH")) return "Thai (TH)";
+        if (t.Contains("TR")) return "Turkish (TR)";
+        if (t.Contains("FIL")) return "Filipino (FIL)";
+        return "Other";
     }
 
     private static string NormalizeTagInput(string input) {
@@ -115,13 +275,13 @@ public sealed class TaggerForm : Form {
         return input.Trim();
     }
 
-    private static IEnumerable<(string Name, string Tag)> BuiltinPresets() {
-        return new[] {
+    private static IEnumerable<(string Name, string Tag, string Category)> BuiltinPresets() {
+        var raw = new[] {
             ("Arpasing+ Phonemizer", "EN ARPA+"),
             ("Brazilian Portuguese CVC Phonemizer", "PT-BR CVC"),
             ("Cantonese CVVC Phonemizer", "ZH-YUE CVVC"),
             ("Cantonese Syo-Style Phonemizer", "ZH-YUE SYO"),
-            ("Chinese CVV (蜊∵怦蠑乗紛髻ｳ謇ｩ蠑) Phonemizer", "ZH CVV"),
+            ("Chinese CVV (Legacy) Phonemizer", "ZH CVV"),
             ("Chinese CVV Plus Phonemizer", "ZH CVV+"),
             ("Chinese CVVC Phonemizer", "ZH CVVC"),
             ("Default Phonemizer", "DEFAULT"),
@@ -190,6 +350,7 @@ public sealed class TaggerForm : Form {
             ("Vogen Chinese Yue Phonemizer", "VOGEN ZH-YUE"),
             ("Voicevox Japanese Phonemizer", "VOICEVOX JA"),
         };
+        return raw.Select(p => (p.Item1, p.Item2, Categorize(p.Item2)));
     }
 
     private static RouterConfig LoadRouterConfig() {
@@ -236,4 +397,3 @@ public sealed class TaggerForm : Form {
         public Dictionary<string, string>? Aliases { get; set; }
     }
 }
-

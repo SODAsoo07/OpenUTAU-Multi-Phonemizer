@@ -7,7 +7,7 @@ using OpenUtau.Core.Util;
 
 namespace MasterRouter {
     public class ApplyMasterRouterTagPrefix : BatchEdit {
-        public string Name => "Master Router: Apply :tag: to selected notes";
+        public string Name => "Unofficial Master Router: Apply :tag: to selected notes";
 
         public void Run(UProject project, UVoicePart part, System.Collections.Generic.List<UNote> selectedNotes, DocManager docManager) {
             if (selectedNotes.Count == 0) {

@@ -8,7 +8,7 @@ using OpenUtau.Core.Ustx;
 using Serilog;
 
 namespace MasterRouter {
-    [Phonemizer("Master Router Phonemizer", "ROUTER", "SODAsoo")]
+    [Phonemizer("Master Router Phonemizer-Unofficial ", "ROUTER", "SODAsoo")]
     public class MasterRouterPhonemizer : Phonemizer {
         private USinger? singer;
         private UProject? project;
