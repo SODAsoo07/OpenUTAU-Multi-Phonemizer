@@ -1,5 +1,3 @@
-﻿# Master Router Phonemizer 사용 설명서 (한국어)
-
 ## 1) 개요
 
 이 플러그인은 트랙에 `Master Router Phonemizer` 하나만 설정한 뒤,  
@@ -43,6 +41,14 @@
 예시:
 - `:ja:あ` -> `JA VCV & CVVC`
 - `:en:hello` -> `EN VCCV`
+
+실 사용례: 
+<img width="1017" height="842" alt="스크린샷 2026-04-05 113849" src="https://github.com/user-attachments/assets/db3f0a72-a60b-4e57-b162-2603a8b7040d" />
+
+<img width="1296" height="785" alt="스크린샷 2026-04-05 113909" src="https://github.com/user-attachments/assets/a55bd11c-ecc5-4336-b2ee-7e6335611821" />
+
+
+
 
 ---
 
