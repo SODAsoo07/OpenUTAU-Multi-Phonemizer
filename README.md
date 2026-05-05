@@ -12,7 +12,7 @@
 ## 2) 설치
 
 1. OpenUtau 종료
-2. 아래 파일을 `C:\Users\oyh57\Documents\OpenUtau\Plugins`에 복사
+2. 아래 파일을 `\OpenUtau\Plugins`에 복사
    - `MasterRouter.dll`
    - `master-router.config.json` (선택이지만 권장)
 3. OpenUtau 실행
@@ -65,13 +65,13 @@
 #### 4-1) 수동 힌트
 
 - 형식: `가사>힌트`
-- 예시: `:KO VCCVC:각>k`
+- 예시: `:KO CVVC:각>k`
 - 동작: `k`를 다음 발음 시작 힌트로 사용
 
 #### 4-2) 자동 힌트
 
 - 형식: `가사>`
-- 예시: `:KO VCCVC:각>`
+- 예시: `:KO CVVC:각>`
 - 동작 순서:
 1. 다음 노트 `phoneticHint` 첫 토큰 사용
 2. 없으면 다음 노트 가사를 언어별 테이블로 onset 추정 (현재 JA/EN/KO)
