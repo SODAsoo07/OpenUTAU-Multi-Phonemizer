@@ -2,7 +2,16 @@ using System.Text.Json;
 
 namespace MasterRouterTagger;
 
+public enum UiLanguage {
+    Korean,
+    English,
+}
+
 public sealed class TaggerForm : Form {
+    private readonly Label titleLabel = new();
+    private readonly Label modeLabel = new();
+    private readonly Label tagLabel = new();
+    private readonly Button languageButton = new();
     private readonly ComboBox modeComboBox = new();
     private readonly ComboBox tagComboBox = new();
     private readonly CheckBox overwriteCheckBox = new();
@@ -12,10 +21,12 @@ public sealed class TaggerForm : Form {
     private readonly HashSet<string> categoryHeaders = new(StringComparer.Ordinal);
     private readonly HashSet<int> categoryHeaderIndices = new();
     private int lastValidPresetIndex = -1;
+    private UiLanguage uiLanguage = UiLanguage.Korean;
 
     public string SelectedTag { get; private set; } = string.Empty;
     public bool OverwriteExistingTag => overwriteCheckBox.Checked;
     public TaggingMode SelectedMode { get; private set; } = TaggingMode.AddRouteTag;
+    public UiLanguage CurrentLanguage => uiLanguage;
 
     public TaggerForm() {
         Text = "Unofficial Master Router Tagger";
@@ -25,34 +36,30 @@ public sealed class TaggerForm : Form {
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(640, 240);
 
-        var titleLabel = new Label {
-            Text = "비공식(서드파티) 플러그인: 선택 노트에 :태그:를 추가/제거합니다.",
-            AutoSize = true,
-            Location = new Point(16, 16),
-        };
+        titleLabel.AutoSize = true;
+        titleLabel.Location = new Point(16, 16);
         Controls.Add(titleLabel);
 
-        var modeLabel = new Label {
-            Text = "동작:",
-            AutoSize = true,
-            Location = new Point(16, 52),
-        };
+        modeLabel.AutoSize = true;
+        modeLabel.Location = new Point(16, 52);
         Controls.Add(modeLabel);
+
+        languageButton.Location = new Point(510, 12);
+        languageButton.Size = new Size(114, 28);
+        languageButton.Click += (_, _) => ToggleLanguage();
+        Controls.Add(languageButton);
 
         modeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
         modeComboBox.Location = new Point(16, 72);
         modeComboBox.Size = new Size(256, 28);
-        modeComboBox.Items.Add("태그 추가");
-        modeComboBox.Items.Add("태그 제거");
+        modeComboBox.Items.Add(string.Empty);
+        modeComboBox.Items.Add(string.Empty);
         modeComboBox.SelectedIndex = 0;
         modeComboBox.SelectedIndexChanged += (_, _) => RefreshModeState();
         Controls.Add(modeComboBox);
 
-        var tagLabel = new Label {
-            Text = "태그 / 프리셋:",
-            AutoSize = true,
-            Location = new Point(16, 108),
-        };
+        tagLabel.AutoSize = true;
+        tagLabel.Location = new Point(16, 108);
         Controls.Add(tagLabel);
 
         tagComboBox.DropDownStyle = ComboBoxStyle.DropDown;
@@ -63,19 +70,16 @@ public sealed class TaggerForm : Form {
         tagComboBox.SelectionChangeCommitted += OnTagComboSelectionCommitted;
         Controls.Add(tagComboBox);
 
-        overwriteCheckBox.Text = "기존 라우팅 태그가 있어도 덮어쓰기";
         overwriteCheckBox.AutoSize = true;
         overwriteCheckBox.Location = new Point(16, 164);
         overwriteCheckBox.Checked = false;
         Controls.Add(overwriteCheckBox);
 
-        okButton.Text = "적용";
         okButton.Location = new Point(448, 200);
         okButton.Size = new Size(84, 30);
         okButton.Click += (_, _) => OnSubmit();
         Controls.Add(okButton);
 
-        cancelButton.Text = "취소";
         cancelButton.Location = new Point(540, 200);
         cancelButton.Size = new Size(84, 30);
         cancelButton.DialogResult = DialogResult.Cancel;
@@ -85,7 +89,30 @@ public sealed class TaggerForm : Form {
         CancelButton = cancelButton;
 
         LoadPresets();
+        ApplyLanguage();
         RefreshModeState();
+    }
+
+    private void ToggleLanguage() {
+        uiLanguage = uiLanguage == UiLanguage.Korean ? UiLanguage.English : UiLanguage.Korean;
+        ApplyLanguage();
+    }
+
+    private void ApplyLanguage() {
+        Text = "Unofficial Master Router Tagger";
+        titleLabel.Text = uiLanguage == UiLanguage.Korean
+            ? "비공식(서드파티) 플러그인: 선택 노트에 :태그:를 추가/제거합니다."
+            : "Unofficial third-party plugin: add/remove :tag: on selected notes.";
+        modeLabel.Text = uiLanguage == UiLanguage.Korean ? "동작:" : "Mode:";
+        tagLabel.Text = uiLanguage == UiLanguage.Korean ? "태그 / 프리셋:" : "Tag / Preset:";
+        overwriteCheckBox.Text = uiLanguage == UiLanguage.Korean
+            ? "기존 라우팅 태그가 있어도 덮어쓰기"
+            : "Overwrite existing route tag";
+        okButton.Text = uiLanguage == UiLanguage.Korean ? "적용" : "Apply";
+        cancelButton.Text = uiLanguage == UiLanguage.Korean ? "취소" : "Cancel";
+        languageButton.Text = uiLanguage == UiLanguage.Korean ? "한국어 / EN" : "EN / 한국어";
+        modeComboBox.Items[0] = uiLanguage == UiLanguage.Korean ? "태그 추가" : "Add Tag";
+        modeComboBox.Items[1] = uiLanguage == UiLanguage.Korean ? "태그 제거" : "Remove Tag";
     }
 
     private void RefreshModeState() {
@@ -107,7 +134,13 @@ public sealed class TaggerForm : Form {
 
         var input = tagComboBox.Text.Trim();
         if (categoryHeaders.Contains(input)) {
-            MessageBox.Show("카테고리 항목이 아니라 실제 프리셋/태그를 선택해 주세요.", "Unofficial Master Router Tagger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(
+                uiLanguage == UiLanguage.Korean
+                    ? "카테고리 항목이 아니라 실제 프리셋/태그를 선택해 주세요."
+                    : "Please choose a preset/tag item, not a category header.",
+                "Unofficial Master Router Tagger",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
             return;
         }
         if (presetByDisplay.TryGetValue(input, out var mapped)) {
@@ -115,7 +148,13 @@ public sealed class TaggerForm : Form {
         }
         input = NormalizeTagInput(input);
         if (string.IsNullOrWhiteSpace(input)) {
-            MessageBox.Show("태그를 입력하거나 프리셋에서 선택해 주세요.", "Unofficial Master Router Tagger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(
+                uiLanguage == UiLanguage.Korean
+                    ? "태그를 입력하거나 프리셋에서 선택해 주세요."
+                    : "Enter a tag or choose one from presets.",
+                "Unofficial Master Router Tagger",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
             return;
         }
         SelectedTag = input;
