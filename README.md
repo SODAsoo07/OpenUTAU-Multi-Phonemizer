@@ -131,10 +131,10 @@
 
 ### 포네마이저가 목록에 안 보일 때
 
-1. DLL 위치 확인: `C:\Users\oyh57\Documents\OpenUtau\Plugins\MasterRouter.dll`
+1. DLL 위치 확인: `\OpenUtau\Plugins\MasterRouter.dll`
 2. OpenUtau 재시작
 3. `More... -> General` 그룹에서 확인
-4. 로그 확인: `C:\Users\oyh57\Documents\OpenUtau\Logs\logYYYYMMDD.txt`
+4. 로그 확인: `\OpenUtau\Logs\logYYYYMMDD.txt`
 
 ### DLL 복사가 안 될 때
 
