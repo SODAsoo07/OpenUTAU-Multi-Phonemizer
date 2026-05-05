@@ -10,9 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="plugin.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <Reference Include="OpenUtau.Core">
+      <HintPath>..\MasterRouter\bin\Release\net8.0\OpenUtau.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>

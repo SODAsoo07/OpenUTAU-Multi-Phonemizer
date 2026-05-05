@@ -69,6 +69,13 @@ internal static class TaggingProcessor {
         return new ApplyResult(ApplyStatus.Applied, changed);
     }
 
+    public static string ApplyToLyric(string lyric, string tag, bool overwriteExistingTag, TaggingMode mode) {
+        var normalizedTag = NormalizeTag(tag);
+        return mode == TaggingMode.RemoveRouteTag
+            ? RemoveTagFromLyric(lyric)
+            : ApplyTagToLyric(lyric, normalizedTag, overwriteExistingTag);
+    }
+
     private static string ApplyTagToLyric(string lyric, string tag, bool overwrite) {
         if (string.IsNullOrWhiteSpace(lyric)) {
             return lyric;
